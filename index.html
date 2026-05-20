@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>番茄时钟</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #f5f0eb;
+    --bg-card: rgba(255,255,255,0.7);
+    --bg-card-solid: #fff;
+    --text: #2c2c2c;
+    --text-dim: #999;
+    --text-muted: #bbb;
+    --border: rgba(0,0,0,0.08);
+    --ring-bg: rgba(0,0,0,0.06);
+    --btn-bg: rgba(0,0,0,0.05);
+    --btn-hover: rgba(0,0,0,0.1);
+    --btn-border: rgba(0,0,0,0.1);
+    --accent: #e74c3c;
+    --accent-glow: rgba(231,76,60,0.25);
+    --accent-soft: rgba(231,76,60,0.1);
+    --shadow: 0 8px 32px rgba(0,0,0,0.08);
+    --shadow-lg: 0 20px 60px rgba(0,0,0,0.1);
+    --gradient: linear-gradient(135deg, #f5f0eb 0%, #e8e0d8 100%);
+  }
+
+  [data-theme="dark"] {
+    --bg: #0f0f1a;
+    --bg-card: rgba(255,255,255,0.04);
+    --bg-card-solid: #1a1a2e;
+    --text: #e8e6e3;
+    --text-dim: rgba(255,255,255,0.4);
+    --text-muted: rgba(255,255,255,0.2);
+    --border: rgba(255,255,255,0.06);
+    --ring-bg: rgba(255,255,255,0.05);
+    --btn-bg: rgba(255,255,255,0.06);
+    --btn-hover: rgba(255,255,255,0.12);
+    --btn-border: rgba(255,255,255,0.1);
+    --accent: #ff6b6b;
+    --accent-glow: rgba(255,107,107,0.3);
+    --accent-soft: rgba(255,107,107,0.12);
+    --shadow: 0 8px 32px rgba(0,0,0,0.3);
+    --shadow-lg: 0 20px 60px rgba(0,0,0,0.4);
+    --gradient: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%);
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+    background: var(--gradient);
+    color: var(--text);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    transition: all 0.5s ease;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* ambient blobs */
+  .ambient {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 0;
+  }
+
+  .blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.3;
+    transition: all 1s ease;
+  }
+
+  .blob-1 {
+    width: 400px; height: 400px;
+    background: var(--accent);
+    top: -100px; right: -100px;
+    opacity: 0.15;
+  }
+
+  .blob-2 {
+    width: 300px; height: 300px;
+    background: #6c5ce7;
+    bottom: -80px; left: -80px;
+    opacity: 0.1;
+  }
+
+  [data-theme="dark"] .blob-1 { opacity: 0.08; }
+  [data-theme="dark"] .blob-2 { opacity: 0.06; }
+
+  .container {
+    text-align: center;
+    padding: 2.5rem 2rem;
+    width: 100%;
+    max-width: 400px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* theme toggle */
+  .theme-toggle {
+    position: fixed;
+    top: 1.5rem;
+    right: 1.5rem;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 1.5px solid var(--btn-border);
+    background: var(--btn-bg);
+    color: var(--text);
+    font-size: 1.1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    transition: all 0.3s;
+    z-index: 10;
+  }
+
+  .theme-toggle:hover {
+    background: var(--btn-hover);
+    transform: rotate(20deg) scale(1.05);
+  }
+
+  /* mode tabs */
+  .mode-tabs {
+    display: flex;
+    gap: 0.35rem;
+    justify-content: center;
+    margin-bottom: 2.5rem;
+    background: var(--bg-card);
+    border-radius: 12px;
+    padding: 4px;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border);
+  }
+
+  .mode-tab {
+    flex: 1;
+    padding: 0.55rem 0.8rem;
+    border: none;
+    border-radius: 9px;
+    background: transparent;
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+  }
+
+  .mode-tab:hover { color: var(--text); }
+
+  .mode-tab.active {
+    color: #fff;
+    background: var(--accent);
+    box-shadow: 0 4px 15px var(--accent-glow);
+  }
+
+  /* tomato dots */
+  .tomato-dots {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-bottom: 2rem;
+  }
+
+  .tomato-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--ring-bg);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .tomato-dot.filled {
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent-glow);
+    transform: scale(1.2);
+  }
+
+  /* timer ring */
+  .timer-ring {
+    position: relative;
+    width: 260px;
+    height: 260px;
+    margin: 0 auto 2.5rem;
+  }
+
+  .timer-ring svg {
+    transform: rotate(-90deg);
+    width: 100%;
+    height: 100%;
+    filter: drop-shadow(0 0 20px var(--accent-glow));
+  }
+
+  .timer-ring .bg-circle {
+    fill: none;
+    stroke: var(--ring-bg);
+    stroke-width: 5;
+  }
+
+  .timer-ring .progress-circle {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 5;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.5s linear, stroke 0.5s;
+  }
+
+  .timer-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  .timer-text .time {
+    font-size: 3.8rem;
+    font-weight: 300;
+    letter-spacing: 3px;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+
+  .timer-text .label {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    margin-top: 0.5rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+
+  /* controls */
+  .controls {
+    display: flex;
+    gap: 1.2rem;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 2.5rem;
+  }
+
+  .btn {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    border: 1.5px solid var(--btn-border);
+    background: var(--btn-bg);
+    color: var(--text);
+    font-size: 1.1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .btn:hover {
+    background: var(--btn-hover);
+    border-color: var(--accent);
+    color: var(--accent);
+    transform: scale(1.08);
+  }
+
+  .btn:active { transform: scale(0.94); }
+
+  .btn-primary {
+    width: 68px;
+    height: 68px;
+    font-size: 1.4rem;
+    border: none;
+    background: var(--accent);
+    color: #fff;
+    box-shadow: 0 6px 24px var(--accent-glow);
+  }
+
+  .btn-primary:hover {
+    transform: scale(1.1);
+    box-shadow: 0 8px 32px var(--accent-glow);
+    background: var(--accent);
+    color: #fff;
+    border-color: transparent;
+  }
+
+  /* stats card */
+  .stats-card {
+    background: var(--bg-card);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.4rem 1.2rem;
+    box-shadow: var(--shadow);
+  }
+
+  .stats {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+  }
+
+  .stat-item { text-align: center; }
+  .stat-value {
+    font-size: 1.6rem;
+    font-weight: 600;
+    background: linear-gradient(135deg, var(--accent), #e84393);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .stat-label {
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    margin-top: 0.25rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 500;
+  }
+
+  .divider {
+    width: 1px;
+    background: var(--border);
+    align-self: stretch;
+  }
+
+  /* running pulse animation */
+  @keyframes pulse {
+    0%, 100% { opacity: 0.15; }
+    50% { opacity: 0.25; }
+  }
+
+  .running .blob-1 { animation: pulse 4s ease-in-out infinite; }
+  .running .blob-2 { animation: pulse 4s ease-in-out infinite 2s; }
+
+  @keyframes breathe {
+    0%, 100% { box-shadow: 0 6px 24px var(--accent-glow); }
+    50% { box-shadow: 0 6px 36px var(--accent-glow), 0 0 60px var(--accent-glow); }
+  }
+
+  .running .btn-primary { animation: breathe 2.5s ease-in-out infinite; }
+
+  /* modal overlay */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 99999;
+    background-color: rgba(0, 0, 0, 0.85);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s ease;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  .modal-overlay.show {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .modal-content {
+    text-align: center;
+    padding: 3rem 2.5rem;
+    border-radius: 24px;
+    background: var(--bg-card-solid);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-lg);
+    transform: scale(0.85);
+    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    max-width: 400px;
+    width: 90%;
+  }
+
+  .modal-overlay.show .modal-content {
+    transform: scale(1);
+  }
+
+  .modal-title {
+    font-size: 2.2rem;
+    font-weight: 700;
+    margin-bottom: 0.6rem;
+    background: linear-gradient(135deg, var(--accent), #e84393);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .modal-subtitle {
+    font-size: 1rem;
+    color: var(--text-dim);
+    margin-bottom: 2rem;
+  }
+
+  .modal-btn {
+    padding: 0.8rem 2.5rem;
+    border: none;
+    border-radius: 12px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 1.05rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 6px 24px var(--accent-glow);
+    transition: all 0.25s;
+  }
+
+  .modal-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 8px 32px var(--accent-glow);
+  }
+
+  .modal-btn:active {
+    transform: scale(0.96);
+  }
+
+  .modal-overlay:fullscreen,
+  .modal-overlay:-webkit-full-screen {
+    background: rgba(0, 0, 0, 0.95);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .modal-overlay:fullscreen .modal-content,
+  .modal-overlay:-webkit-full-screen .modal-content {
+    transform: scale(1.3);
+  }
+
+  .modal-overlay:fullscreen .modal-title,
+  .modal-overlay:-webkit-full-screen .modal-title {
+    font-size: 3.5rem;
+  }
+
+  /* responsive */
+  @media (max-width: 440px) {
+    .container { padding: 1.5rem 1.2rem; }
+    .timer-ring { width: 220px; height: 220px; }
+    .timer-text .time { font-size: 3rem; }
+  }
+</style>
+</head>
+<body class="work" data-theme="dark">
+<div class="ambient">
+  <div class="blob blob-1"></div>
+  <div class="blob blob-2"></div>
+</div>
+
+<button class="theme-toggle" id="themeToggle" title="切换主题">&#9790;</button>
+
+<div class="container">
+  <div class="mode-tabs">
+    <button class="mode-tab active" data-mode="work">专注</button>
+    <button class="mode-tab" data-mode="short-break">短休息</button>
+    <button class="mode-tab" data-mode="long-break">长休息</button>
+  </div>
+
+  <div class="tomato-dots">
+    <div class="tomato-dot"></div>
+    <div class="tomato-dot"></div>
+    <div class="tomato-dot"></div>
+    <div class="tomato-dot"></div>
+  </div>
+
+  <div class="timer-ring">
+    <svg viewBox="0 0 260 260">
+      <circle class="bg-circle" cx="130" cy="130" r="120" />
+      <circle class="progress-circle" cx="130" cy="130" r="120" />
+    </svg>
+    <div class="timer-text">
+      <div class="time">25:00</div>
+      <div class="label">专注时间</div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="btn" id="resetBtn" title="重置">&#8634;</button>
+    <button class="btn btn-primary" id="startBtn" title="开始">&#9654;</button>
+    <button class="btn" id="skipBtn" title="跳过">&#9197;</button>
+  </div>
+
+  <div class="stats-card">
+    <div class="stats">
+      <div class="stat-item">
+        <div class="stat-value" id="pomodoroCount">0</div>
+        <div class="stat-label">番茄数</div>
+      </div>
+      <div class="divider"></div>
+      <div class="stat-item">
+        <div class="stat-value" id="totalMinutes">0</div>
+        <div class="stat-label">专注分钟</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal-content">
+    <div class="modal-title">时间到，请休息！</div>
+    <div class="modal-subtitle">你完成了一个番茄，好好休息一下吧</div>
+    <button class="modal-btn" id="modalClose">我知道了</button>
+  </div>
+</div>
+
+<script>
+const MODES = {
+  work:          { duration: 25 * 60, label: '专注时间', accent: '#e74c3c', accentDark: '#ff6b6b' },
+  'short-break': { duration: 5 * 60,  label: '短休息',   accent: '#2ecc71', accentDark: '#00b894' },
+  'long-break':  { duration: 15 * 60, label: '长休息',   accent: '#6c5ce7', accentDark: '#a29bfe' },
+};
+
+let mode = 'work';
+let timeLeft = MODES[mode].duration;
+let totalTime = MODES[mode].duration;
+let running = false;
+let interval = null;
+let pomodoroCount = 0;
+let totalFocusMinutes = 0;
+let isDark = true;
+
+const $ = s => document.querySelector(s);
+const $$ = s => document.querySelectorAll(s);
+
+const circumference = 2 * Math.PI * 120;
+$('.progress-circle').style.strokeDasharray = circumference;
+$('.progress-circle').style.strokeDashoffset = 0;
+
+function getAccent() {
+  return isDark ? MODES[mode].accentDark : MODES[mode].accent;
+}
+
+function updateThemeColors() {
+  const accent = getAccent();
+  document.documentElement.style.setProperty('--accent', accent);
+  document.documentElement.style.setProperty('--accent-glow', accent.replace(')', ',0.25)').replace('rgb', 'rgba').replace('#', ''));
+
+  // compute glow from hex
+  const r = parseInt(accent.slice(1,3),16);
+  const g = parseInt(accent.slice(3,5),16);
+  const b = parseInt(accent.slice(5,7),16);
+  document.documentElement.style.setProperty('--accent-glow', `rgba(${r},${g},${b},0.25)`);
+  document.documentElement.style.setProperty('--accent-soft', `rgba(${r},${g},${b},0.1)`);
+}
+
+function updateDisplay() {
+  const min = String(Math.floor(timeLeft / 60)).padStart(2, '0');
+  const sec = String(timeLeft % 60).padStart(2, '0');
+  $('.time').textContent = `${min}:${sec}`;
+  $('.label').textContent = MODES[mode].label;
+
+  const progress = 1 - timeLeft / totalTime;
+  const offset = circumference * (1 - progress);
+  $('.progress-circle').style.strokeDashoffset = offset;
+
+  document.title = `${min}:${sec} - ${MODES[mode].label}`;
+}
+
+function setMode(newMode) {
+  if (running) pause();
+  mode = newMode;
+  timeLeft = MODES[mode].duration;
+  totalTime = MODES[mode].duration;
+
+  $$('.mode-tab').forEach(t => t.classList.toggle('active', t.dataset.mode === mode));
+  updateThemeColors();
+  updateDisplay();
+}
+
+function start() {
+  if (running) return;
+  running = true;
+  document.body.classList.add('running');
+  $('#startBtn').innerHTML = '&#10074;&#10074;';
+  interval = setInterval(() => {
+    timeLeft--;
+    if (timeLeft <= 0) {
+      timeLeft = 0;
+      pause();
+      onTimerEnd();
+    }
+    updateDisplay();
+  }, 1000);
+}
+
+function pause() {
+  running = false;
+  document.body.classList.remove('running');
+  clearInterval(interval);
+  $('#startBtn').innerHTML = '&#9654;';
+}
+
+function reset() {
+  pause();
+  timeLeft = MODES[mode].duration;
+  totalTime = MODES[mode].duration;
+  updateDisplay();
+}
+
+function onTimerEnd() {
+  playSound();
+  if (mode === 'work') {
+    pomodoroCount++;
+    totalFocusMinutes += MODES.work.duration / 60;
+    $('#pomodoroCount').textContent = pomodoroCount;
+    $('#totalMinutes').textContent = totalFocusMinutes;
+    updateDots();
+
+    if (pomodoroCount % 4 === 0) {
+      setMode('long-break');
+    } else {
+      setMode('short-break');
+    }
+  } else {
+    setMode('work');
+  }
+  showModal();
+  sendSystemNotification();
+  sendLocalNotification();
+  startTitleBlink();
+}
+
+function updateDots() {
+  const dots = $$('.tomato-dot');
+  const cyclePos = ((pomodoroCount - 1) % 4) + 1;
+  dots.forEach((d, i) => d.classList.toggle('filled', i < cyclePos));
+}
+
+function showModal() {
+  $('#modal').classList.add('show');
+  requestFullscreen();
+}
+
+function requestFullscreen() {
+  const el = $('#modal');
+  if (el.requestFullscreen) el.requestFullscreen();
+  else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+}
+
+function exitFullscreen() {
+  if (document.exitFullscreen) document.exitFullscreen();
+  else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+}
+
+$('#modalClose').addEventListener('click', () => {
+  $('#modal').classList.remove('show');
+  exitFullscreen();
+  stopTitleBlink();
+  start();
+});
+
+function playSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const notes = [523.25, 659.25, 783.99, 1046.5];
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = freq;
+      osc.type = 'sine';
+      const t = ctx.currentTime + i * 0.15;
+      gain.gain.setValueAtTime(0.25, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+      osc.start(t);
+      osc.stop(t + 0.3);
+    });
+  } catch(e) {}
+}
+
+// theme toggle
+$('#themeToggle').addEventListener('click', () => {
+  isDark = !isDark;
+  document.body.setAttribute('data-theme', isDark ? 'dark' : 'light');
+  $('#themeToggle').innerHTML = isDark ? '&#9790;' : '&#9728;';
+  updateThemeColors();
+});
+
+$('#startBtn').addEventListener('click', () => running ? pause() : start());
+$('#resetBtn').addEventListener('click', reset);
+$('#skipBtn').addEventListener('click', () => { pause(); onTimerEnd(); });
+
+$$('.mode-tab').forEach(tab => {
+  tab.addEventListener('click', () => setMode(tab.dataset.mode));
+});
+
+// system notification
+let titleBlinkTimer = null;
+
+function sendLocalNotification() {
+  fetch('http://localhost:8888/notify').then(() => {
+    // system alert dismissed = user clicked "好"
+    $('#modal').classList.remove('show');
+    exitFullscreen();
+    stopTitleBlink();
+    start();
+  }).catch(() => {});
+}
+
+function requestNotificationPermission() {
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+}
+
+function sendSystemNotification() {
+  if ('Notification' in window && Notification.permission === 'granted') {
+    const n = new Notification('番茄时钟', {
+      body: '时间到，请休息！',
+      icon: '🍅',
+      requireInteraction: true,
+    });
+    n.onclick = () => {
+      window.focus();
+      n.close();
+      setTimeout(() => requestFullscreen(), 200);
+    };
+  }
+}
+
+function startTitleBlink() {
+  let toggle = false;
+  clearInterval(titleBlinkTimer);
+  titleBlinkTimer = setInterval(() => {
+    document.title = toggle ? '⏰ 时间到！' : '🍅 请休息！';
+    toggle = !toggle;
+  }, 800);
+}
+
+function stopTitleBlink() {
+  clearInterval(titleBlinkTimer);
+  titleBlinkTimer = null;
+}
+
+// visibility change — go fullscreen when user returns to the modal
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && $('#modal').classList.contains('show')) {
+    requestFullscreen();
+  }
+});
+
+// init
+requestNotificationPermission();
+updateThemeColors();
+updateDisplay();
+</script>
+</body>
+</html>
