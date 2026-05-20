@@ -511,8 +511,8 @@
 
 <div class="modal-overlay" id="modal">
   <div class="modal-content">
-    <div class="modal-title">时间到，请休息！</div>
-    <div class="modal-subtitle">你完成了一个番茄，好好休息一下吧</div>
+    <div class="modal-title" id="modalTitle">时间到，请休息！</div>
+    <div class="modal-subtitle" id="modalSubtitle">你完成了一个番茄，好好休息一下吧</div>
     <button class="modal-btn" id="modalClose">我知道了</button>
   </div>
 </div>
@@ -641,6 +641,13 @@ function updateDots() {
 }
 
 function showModal() {
+  if (mode === 'work') {
+    $('#modalTitle').textContent = '请加油，每次进步一点！';
+    $('#modalSubtitle').textContent = '新的专注开始了，保持节奏！';
+  } else {
+    $('#modalTitle').textContent = '时间到，请休息！';
+    $('#modalSubtitle').textContent = '你完成了一个番茄，好好休息一下吧';
+  }
   $('#modal').classList.add('show');
   requestFullscreen();
 }
