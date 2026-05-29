@@ -336,6 +336,23 @@
     align-self: stretch;
   }
 
+  .stat-reset {
+    background: none;
+    border: none;
+    color: #2ecc71;
+    font-size: 0.7rem;
+    cursor: pointer;
+    padding: 4px 10px;
+    border-radius: 6px;
+    transition: all 0.2s;
+    margin-top: 6px;
+  }
+
+  .stat-reset:hover {
+    color: #00b894;
+    background: rgba(46, 204, 113, 0.15);
+  }
+
   /* running pulse animation */
   @keyframes pulse {
     0%, 100% { opacity: 0.15; }
@@ -506,6 +523,7 @@
         <div class="stat-label">专注分钟</div>
       </div>
     </div>
+    <button class="stat-reset" id="resetStatsBtn">归零</button>
   </div>
 </div>
 
@@ -701,6 +719,16 @@ $('#themeToggle').addEventListener('click', () => {
 $('#startBtn').addEventListener('click', () => running ? pause() : start());
 $('#resetBtn').addEventListener('click', reset);
 $('#skipBtn').addEventListener('click', () => { pause(); onTimerEnd(); });
+$('#resetStatsBtn').addEventListener('click', () => {
+  if (pomodoroCount === 0 && totalFocusMinutes === 0) return;
+  if (confirm('确定要将番茄数和专注分钟归零吗？')) {
+    pomodoroCount = 0;
+    totalFocusMinutes = 0;
+    $('#pomodoroCount').textContent = '0';
+    $('#totalMinutes').textContent = '0';
+    document.querySelectorAll('.tomato-dot').forEach(d => d.classList.remove('filled'));
+  }
+});
 
 $$('.mode-tab').forEach(tab => {
   tab.addEventListener('click', () => setMode(tab.dataset.mode));
