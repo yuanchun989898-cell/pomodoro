@@ -601,6 +601,7 @@ function setMode(newMode) {
 
 function start() {
   if (running) return;
+  requestNotificationPermission();
   running = true;
   document.body.classList.add('running');
   $('#startBtn').innerHTML = '&#10074;&#10074;';
@@ -629,8 +630,16 @@ function reset() {
   updateDisplay();
 }
 
+function getNotifyMessage(endedMode) {
+  if (endedMode === 'work') {
+    return { title: '时间到，请休息！', message: '你完成了一个番茄，好好休息一下吧' };
+  }
+  return { title: '继续加油！', message: '新的专注开始了，保持节奏！' };
+}
+
 function onTimerEnd() {
   playSound();
+  const endedMode = mode;
   if (mode === 'work') {
     pomodoroCount++;
     totalFocusMinutes += MODES.work.duration / 60;
@@ -646,9 +655,10 @@ function onTimerEnd() {
   } else {
     setMode('work');
   }
-  showModal();
-  sendSystemNotification();
-  sendLocalNotification();
+  showModal(endedMode);
+  const msg = getNotifyMessage(endedMode);
+  sendSystemNotification(msg);
+  sendLocalNotification(msg);
   startTitleBlink();
 }
 
@@ -658,14 +668,12 @@ function updateDots() {
   dots.forEach((d, i) => d.classList.toggle('filled', i < cyclePos));
 }
 
-function showModal() {
-  if (mode === 'work') {
-    $('#modalTitle').textContent = '请加油，每次进步一点！';
-    $('#modalSubtitle').textContent = '新的专注开始了，保持节奏！';
-  } else {
-    $('#modalTitle').textContent = '时间到，请休息！';
-    $('#modalSubtitle').textContent = '你完成了一个番茄，好好休息一下吧';
-  }
+function showModal(endedMode) {
+  const msg = endedMode === 'work'
+    ? { title: '时间到，请休息！', subtitle: '你完成了一个番茄，好好休息一下吧' }
+    : { title: '继续加油！', subtitle: '新的专注开始了，保持节奏！' };
+  $('#modalTitle').textContent = msg.title;
+  $('#modalSubtitle').textContent = msg.subtitle;
   $('#modal').classList.add('show');
   requestFullscreen();
 }
@@ -737,14 +745,23 @@ $$('.mode-tab').forEach(tab => {
 // system notification
 let titleBlinkTimer = null;
 
-function sendLocalNotification() {
-  fetch('http://localhost:8888/notify').then(() => {
+function sendLocalNotification(msg) {
+  fetch('/notify', {
+    method: 'POST',
+    cache: 'no-store',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title: msg.title, message: msg.message }),
+  }).then(res => {
+    if (!res.ok) throw new Error('notify failed');
     // system alert dismissed = user clicked "好"
     $('#modal').classList.remove('show');
     exitFullscreen();
     stopTitleBlink();
     start();
-  }).catch(() => {});
+  }).catch(() => {
+    $('#modalSubtitle').textContent =
+      '系统弹窗未弹出，请确认 server.py 正在运行，或点击下方按钮继续';
+  });
 }
 
 function requestNotificationPermission() {
@@ -753,12 +770,12 @@ function requestNotificationPermission() {
   }
 }
 
-function sendSystemNotification() {
+function sendSystemNotification(msg) {
   if ('Notification' in window && Notification.permission === 'granted') {
-    const n = new Notification('番茄时钟', {
-      body: '时间到，请休息！',
-      icon: '🍅',
+    const n = new Notification('🍅 番茄时钟', {
+      body: msg.title,
       requireInteraction: true,
+      tag: 'pomodoro-' + Date.now(),
     });
     n.onclick = () => {
       window.focus();
