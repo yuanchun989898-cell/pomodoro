@@ -745,23 +745,39 @@ $$('.mode-tab').forEach(tab => {
 // system notification
 let titleBlinkTimer = null;
 
-function sendLocalNotification(msg) {
-  fetch('/notify', {
-    method: 'POST',
-    cache: 'no-store',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title: msg.title, message: msg.message }),
-  }).then(res => {
-    if (!res.ok) throw new Error('notify failed');
-    // system alert dismissed = user clicked "好"
-    $('#modal').classList.remove('show');
-    exitFullscreen();
-    stopTitleBlink();
-    start();
-  }).catch(() => {
+async function sendLocalNotification(msg) {
+  // 如果服务器不可达，快速降级到 modal
+  let notified = false;
+  for (let attempt = 0; attempt < 2 && !notified; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 90000); // 90s 超时
+      const res = await fetch('/notify', {
+        method: 'POST',
+        signal: controller.signal,
+        cache: 'no-store',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: msg.title, message: msg.message }),
+      });
+      clearTimeout(timeoutId);
+      if (!res.ok) throw new Error('notify failed');
+      // system alert dismissed = user clicked "好"
+      notified = true;
+      $('#modal').classList.remove('show');
+      exitFullscreen();
+      stopTitleBlink();
+      start();
+    } catch {
+      if (!notified) {
+        // 第一次失败，等 1s 重试；第二次直接 fallback
+        await new Promise(r => setTimeout(r, 1000));
+      }
+    }
+  }
+  if (!notified) {
     $('#modalSubtitle').textContent =
       '系统弹窗未弹出，请确认 server.py 正在运行，或点击下方按钮继续';
-  });
+  }
 }
 
 function requestNotificationPermission() {
@@ -805,6 +821,23 @@ document.addEventListener('visibilitychange', () => {
     requestFullscreen();
   }
 });
+
+// server health check
+(async function checkServer() {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
+    const res = await fetch('/health', { signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (!res.ok) throw new Error('unhealthy');
+  } catch {
+    const dots = $('.tomato-dots');
+    const warn = document.createElement('div');
+    warn.style.cssText = 'color:var(--accent);font-size:0.8rem;margin-bottom:1rem;padding:8px 12px;background:var(--accent-soft);border-radius:8px;';
+    warn.textContent = '⚠️ 系统弹窗服务未运行，倒计时结束将无系统提醒';
+    dots.parentNode.insertBefore(warn, dots.nextSibling);
+  }
+})();
 
 // init
 requestNotificationPermission();
